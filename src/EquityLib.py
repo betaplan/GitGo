@@ -187,6 +187,19 @@ class Market():
     # folder = 'cn_stock'
     # download_stocks(list(cn_tickers.keys()), folder)
 
+    def loadData(self, folder, assetId):
+        try:
+            return pd.read_csv(folder + '/{}.csv'.format(assetId))
+        except:
+            return "Failed"
+
+    #
+    # folder = 'cn_stock'
+    # download_stocks(list(cn_tickers.keys()), folder)
+
+    def debug(self):
+        return("debug")
+
 class Equity(Market):
     def __init__(self):
         self.data = []

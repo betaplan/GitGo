@@ -1,7 +1,10 @@
 import os, sys
 # sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
+sys.path.append(os.path.join(os.path.abspath(''),"src"))
 sys.path.append(os.path.join(os.path.abspath(''),"GitHubGo\code"))
 sys.path.append(os.path.join(os.path.abspath(''),"GitHubGo\cn_stock_163"))
+
+
 import EquityLib as el
 import pandas as pd
 import numpy as np
