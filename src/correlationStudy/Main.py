@@ -1,85 +1,29 @@
-"""
-=======================================
-Visualizing the stock market structure
-=======================================
-
-This example employs several unsupervised learning techniques to extract
-the stock market structure from variations in historical quotes.
-
-The quantity that we use is the daily variation in quote price: quotes
-that are linked tend to cofluctuate during a day.
-
-.. _stock_market:
-
-Learning a graph structure
---------------------------
-
-We use sparse inverse covariance estimation to find which quotes are
-correlated conditionally on the others. Specifically, sparse inverse
-covariance gives us a graph, that is a list of connection. For each
-symbol, the symbols that it is connected too are those useful to explain
-its fluctuations.
-
-Clustering
-----------
-
-We use clustering to group together quotes that behave similarly. Here,
-amongst the :ref:`various clustering techniques <clustering>` available
-in the scikit-learn, we use :ref:`affinity_propagation` as it does
-not enforce equal-size clusters, and it can choose automatically the
-number of clusters from the data.
-
-Note that this gives us a different indication than the graph, as the
-graph reflects conditional relations between variables, while the
-clustering reflects marginal properties: variables clustered together can
-be considered as having a similar impact at the level of the full stock
-market.
-
-Embedding in 2D space
----------------------
-
-For visualization purposes, we need to lay out the different symbols on a
-2D canvas. For this we use :ref:`manifold` techniques to retrieve 2D
-embedding.
-
-
-Visualization
--------------
-
-The output of the 3 models are combined in a 2D graph where nodes
-represents the stocks and edges the:
-
-- cluster labels are used to define the color of the nodes
-- the sparse covariance model is used to display the strength of the edges
-- the 2D embedding is used to position the nodes in the plan
-
-This example has a fair amount of visualization-related code, as
-visualization is crucial here to display the graph. One of the challenge
-is to position the labels minimizing overlap. For this we use an
-heuristic based on the direction of the nearest neighbor along each
-axis.
-"""
-print(__doc__)
+from __future__ import print_function
 
 # Author: Gael Varoquaux gael.varoquaux@normalesup.org
 # License: BSD 3 clause
 
-import datetime
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+
+import pandas as pd
+
 from sklearn import cluster, covariance, manifold
 
-###############################################################################
+print(__doc__)
+
+
+# #############################################################################
 # Retrieve the data from Internet
 
-# Choose a time period reasonably calm (not too long ago so that we get
-# high-tech firms, and before the 2008 crash)
-d1 = datetime.datetime(2013, 1, 1)
-d2 = datetime.datetime(2018, 1, 1)
+# The data is from 2003 - 2008. This is reasonably calm: (not too long ago so
+# that we get high-tech firms, and before the 2008 crash). This kind of
+# historical data can be obtained for from APIs like the quandl.com and
+# alphavantage.co ones.
 
-# kraft symbol has now changed from KFT to MDLZ in yahoo
 symbol_dict = {
     'TOT': 'Total',
     'XOM': 'Exxon',
@@ -90,12 +34,13 @@ symbol_dict = {
     'IBM': 'IBM',
     'TWX': 'Time Warner',
     'CMCSA': 'Comcast',
+    'CVC': 'Cablevision',
     'YHOO': 'Yahoo',
+    'DELL': 'Dell',
     'HPQ': 'HP',
     'AMZN': 'Amazon',
     'TM': 'Toyota',
     'CAJ': 'Canon',
-    'MTU': 'Mitsubishi',
     'SNE': 'Sony',
     'F': 'Ford',
     'HMC': 'Honda',
@@ -104,9 +49,8 @@ symbol_dict = {
     'BA': 'Boeing',
     'KO': 'Coca Cola',
     'MMM': '3M',
-    'MCD': 'Mc Donalds',
+    'MCD': 'McDonald\'s',
     'PEP': 'Pepsi',
-    'MDLZ': 'Kraft Foods',
     'K': 'Kellogg',
     'UN': 'Unilever',
     'MAR': 'Marriott',
@@ -122,11 +66,9 @@ symbol_dict = {
     'AAPL': 'Apple',
     'SAP': 'SAP',
     'CSCO': 'Cisco',
-    'TXN': 'Texas instruments',
+    'TXN': 'Texas Instruments',
     'XRX': 'Xerox',
-    'LMT': 'Lookheed Martin',
     'WMT': 'Wal-Mart',
-    'WBA': 'Walgreen',
     'HD': 'Home Depot',
     'GSK': 'GlaxoSmithKline',
     'PFE': 'Pfizer',
@@ -140,34 +82,27 @@ symbol_dict = {
     'CAT': 'Caterpillar',
     'DD': 'DuPont de Nemours'}
 
-symbols, names = np.array(list(symbol_dict.items())).T
 
-# quotes = [quotes_historical_yahoo_ochl(symbol, d1, d2, asobject=True)
-#           for symbol in symbols]
-from pandas_datareader import data
-# quotes = [data.DataReader(symbol, 'morningstar', d1, d2)
-#           for symbol in symbols]
+symbols, names = np.array(sorted(symbol_dict.items())).T
+
 quotes = []
-testinput = False
-if testinput:
-    for symbol in symbols:
-        try:
-            print(symbol)
-            quotes.append(data.DataReader(symbol, 'morningstar', d1, d2))
-        except:
-            print(symbol,"error ")
-# open = np.array([q.open for q in quotes]).astype(np.float)
-# close = np.array([q.close for q in quotes]).astype(np.float)
 
-open = np.array([q.Open for q in quotes]).astype(np.float)
-close = np.array([q.Close for q in quotes]).astype(np.float)
+for symbol in symbols:
+    print('Fetching quote history for %r' % symbol, file=sys.stderr)
+    url = ('https://raw.githubusercontent.com/scikit-learn/examples-data/'
+           'master/financial-data/{}.csv')
+    quotes.append(pd.read_csv(url.format(symbol)))
+
+close_prices = np.vstack([q['close'] for q in quotes])
+open_prices = np.vstack([q['open'] for q in quotes])
 
 # The daily variations of the quotes are what carry most information
-variation = close - open
+variation = close_prices - open_prices
 
-###############################################################################
+
+# #############################################################################
 # Learn a graphical structure from the correlations
-edge_model = covariance.GraphLassoCV()
+edge_model = covariance.GraphLassoCV(cv=5)
 
 # standardize the time series: using correlations rather than covariance
 # is more efficient for structure recovery
@@ -175,7 +110,7 @@ X = variation.copy().T
 X /= X.std(axis=0)
 edge_model.fit(X)
 
-###############################################################################
+# #############################################################################
 # Cluster using affinity propagation
 
 _, labels = cluster.affinity_propagation(edge_model.covariance_)
@@ -184,7 +119,7 @@ n_labels = labels.max()
 for i in range(n_labels + 1):
     print('Cluster %i: %s' % ((i + 1), ', '.join(names[labels == i])))
 
-###############################################################################
+# #############################################################################
 # Find a low-dimension embedding for visualization: find the best position of
 # the nodes (the stocks) on a 2D plane
 
@@ -196,7 +131,7 @@ node_position_model = manifold.LocallyLinearEmbedding(
 
 embedding = node_position_model.fit_transform(X.T).T
 
-###############################################################################
+# #############################################################################
 # Visualization
 plt.figure(1, facecolor='w', figsize=(10, 8))
 plt.clf()
@@ -212,11 +147,11 @@ non_zero = (np.abs(np.triu(partial_correlations, k=1)) > 0.02)
 
 # Plot the nodes using the coordinates of our embedding
 plt.scatter(embedding[0], embedding[1], s=100 * d ** 2, c=labels,
-            cmap=plt.cm.spectral)
+            cmap=plt.cm.nipy_spectral)
 
 # Plot the edges
 start_idx, end_idx = np.where(non_zero)
-#a sequence of (*line0*, *line1*, *line2*), where::
+# a sequence of (*line0*, *line1*, *line2*), where::
 #            linen = (x0, y0), (x1, y1), ... (xm, ym)
 segments = [[embedding[:, start], embedding[:, stop]]
             for start, stop in zip(start_idx, end_idx)]
@@ -255,7 +190,7 @@ for index, (name, label, (x, y)) in enumerate(
              horizontalalignment=horizontalalignment,
              verticalalignment=verticalalignment,
              bbox=dict(facecolor='w',
-                       edgecolor=plt.cm.spectral(label / float(n_labels)),
+                       edgecolor=plt.cm.nipy_spectral(label / float(n_labels)),
                        alpha=.6))
 
 plt.xlim(embedding[0].min() - .15 * embedding[0].ptp(),
@@ -264,3 +199,48 @@ plt.ylim(embedding[1].min() - .03 * embedding[1].ptp(),
          embedding[1].max() + .03 * embedding[1].ptp())
 
 plt.show()
+
+import numpy as np
+XCor = np.cov(X.T)
+( w, v )= np.linalg.eig(XCor)
+weightedVectors = v*w
+weightedVectorsSquare = weightedVectors*weightedVectors
+sortIndex = weightedVectorsSquare.argsort(1)
+def sortindexs(weightedVectorsSquare, index = 1):
+    if index == 1:
+        newMatrix = np.copy(weightedVectorsSquare)
+        (m, n) = newMatrix.shape
+        orderMatrix = np.zeros([m,n])
+        orderMatrix += range(0,n)
+    else:
+        newMatrix = np.copy(weightedVectorsSquare).T
+        (m, n) = newMatrix.shape
+        orderMatrix = np.zeros([m, n])
+        orderMatrix += range(0, n)
+    for iM in range(0,m):
+        for iN in range(1,n):
+            for iNN in range(0,iN-1):
+                if(newMatrix[iM,iNN]<newMatrix[iM,iNN+1]):
+                    newMatrix[iM,iNN], newMatrix[iM,iNN+1] = newMatrix[iM,iNN+1], newMatrix[iM,iNN]
+                    orderMatrix[iM,iNN], orderMatrix[iM,iNN+1] = orderMatrix[iM,iNN+1], orderMatrix[iM,iNN]
+    return orderMatrix
+
+orderMatrixOutput =  sortindexs(weightedVectorsSquare)
+
+def returnIndexArray(orderMatrixOutput, i):
+    output = np.array([])
+    (m, n) = orderMatrixOutput.shape
+    for iM in range(0,m):
+
+        for iN in range(0, n):
+
+            if(orderMatrixOutput[iM,iN] - i == 0):
+                if(iM == 0):
+                    output = np.asarray([iN])
+                else:
+                    output = np.append(output,iN)
+    return output
+
+output = returnIndexArray(orderMatrixOutput,1)
+
+

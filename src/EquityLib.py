@@ -48,6 +48,7 @@ class Market():
         # request = urllib.request.Request(jzc_html)
         # response = urllib.request.urlopen(request)
         # body = json.loads(response.read())
+        self.pages = pages
         return pages
 
     def get_url_lists(self, start, end):
@@ -57,9 +58,12 @@ class Market():
             url += "&pageSize=20&js=var%20MuaZqltj={rank:[(x)],pages:(pc),total:(tot)}&token=7bc05d0d4c3c22ef9fca8c2a912d779c&jsName=quote_123&_g=0.628606915911589&_=1517270127528"
             url_list.append(url)
             start += 1
+        self.url_list = url_list
         return url_list
 
-    def get_tickers_ex(self,url_list):
+    def get_tickers_ex(self,url_list = []):
+        if(url_list == []):
+            url_list = self.url_list
         tickers = {}
         for index in range(len(url_list)):
             url0 = urllib.request.urlopen(url_list[index])

@@ -119,21 +119,9 @@ def prepare_FX(symbol,returntype,start_dt=datetime.date(2015, 1, 1),end_dt = dat
         text_file.close
     return df
 
-a = prepare_FX("GBPUSD","pd,1S",datetime.date(2015, 1, 1),datetime.date(2015, 1, 31))
-a['DateTime'] = pd.to_datetime(a['DateTime'])
-dataSohlc = a.asfreq('S','ohlc')
-bars = b.Bid.resample('30min', how='ohlc')
-dataSstd = a.asfreq('S','std')
-a.set_index('DateTime')
-b = a.head(10000).set_index('DateTime')
-b.index = pd.to_datetime(b.DateTime, unit='s')
-bBid = b.Bid.resample('1S').ohlc()
-bBidstd = b.Bid.resample('1S').std()
-bBid = pd.concat([bBid,bBidstd], axis=1)
-bAsk = b.Ask.resample('1S', how='ohlc')
-bAsk.std = b.Bid.resample('1S', how='std')
+a = prepare_FX("GBPUSD","pd,1S",datetime.date(2015, 1, 1),datetime.date(2016, 1, 31))
+a.to_csv(r'data/fx/GBPUSD.csv')
+b=pd.read_csv(r'data/fx/GBPUSD.csv')
+b.iloc[0:9999].plot(y='openBid')
+print(a)
 
-b['DateTime'] = pd.to_datetime(b['DateTime'])
-bars = b.Bid.resample('1S', how='ohlc')
-c = b.asfreq('1S', method='pad')
-# prepare_FX("GBPUSD","pd")
