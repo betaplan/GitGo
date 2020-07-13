@@ -11,14 +11,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Market_test:
-    def __init__(self, data_path = 'cn_stock_163'):
+    def __init__(self, data_path=r'src/lib/cn_stock_sohu'):
         self.folder = data_path
         self.cash = 100
         self.position = []
         self.action = []
         self.MTM = []
 
-    def newPosition(self,action):
+    def newPosition(self, action):
         try:
             temp = self.position[len(self.position)-1]
             temp = temp+action

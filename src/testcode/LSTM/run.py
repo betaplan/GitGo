@@ -10,7 +10,8 @@ import math
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, "src/testcode/LSTM-Neural-Network-for-Time-Series-Prediction-master/")
-currentpath = r"src/testcode/LSTM-Neural-Network-for-Time-Series-Prediction-master/"
+sys.path.insert(0,'src/testcode/LSTM/')
+currentpath = r"src/testcode/LSTM/"
 from core.data_processor import DataLoader
 from core.model import Model
 

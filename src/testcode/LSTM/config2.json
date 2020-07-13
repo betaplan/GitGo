@@ -1,6 +1,6 @@
 {
 	"data": {
-		"filename": "GBPUSDCloseS.csv",
+		"filename": "testGBPUSD.csv",
 		"columns": [
 			"Close"
 		],

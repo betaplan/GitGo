@@ -19,10 +19,13 @@ class tsdata():
     def importData(self, *args):
         arg = args[0]
         if (type(arg) == str ):
-            try: 
+            try:
                 input_data = pd.read_csv(arg)
-            except:
-                print('Input str not a valid path')
+            except UnicodeDecodeError:
+                try:
+                    input_data = pd.read_csv(arg, encoding="gbk")
+                except UnboundLocalError:
+                    print('Input str not a valid path')
         if(isinstance(arg, pd.DataFrame)):
             input_data = arg
         if (type(arg)==list):
@@ -41,7 +44,7 @@ class tsdata():
                     print('unknown date format')
         self.input_dataRN = input_data.set_index('DateTime')
 
-    def insetData(self,asset, *args):
+    def insetData(self, asset, *args):
         self.colId.append(asset)
         dfdata = self.importData(args[0])
         newColName = list(self.input_dataRN.columns.values)
@@ -60,10 +63,10 @@ class tsdata():
                         self.dataFrames[selfIndex] = self.dataFrames[selfIndex].rename(
                             columns={self.dataFrames[selfIndex].columns.values[0]: self.colId[0]})
                 except ValueError:
-                    self.dataFrames[selfIndex] = self.input_dataRN.loc[:,col]
+                    self.dataFrames[selfIndex] = self.input_dataRN.loc[:, col]
                 except IndexError:
                     # print(self.input_dataRN[col])
-                    self.dataFrames.append(self.input_dataRN.loc[:,col])
+                    self.dataFrames.append(self.input_dataRN.loc[:, col])
                 self.dataFrames[selfIndex] = self.dataFrames[selfIndex].rename(columns={'0': self.colId[0], self.colNames[selfIndex]: asset})
         else:
             print(args," have no data!")

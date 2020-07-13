@@ -7,11 +7,11 @@ import datetime as dt
 from tushare.stock import cons as ct
 import os
 from pandas import Series
-
-
+from src.lib.SohuLib import download_stock_hist as download_sohu_hist
+from src.lib.SohuLib import Get_stock_Background
 import sys
 sys.path.append('/easyquotation.easyquotation')
-sys.path.append(r'C:\Users\home\AppData\Local\Programs\Python\Python36\Lib\site-packages\tushare\stock')
+sys.path.append(r'C:\Users\ln_ti\PycharmProjects\GitGo\cn_stock_163')
 
 try:
     from urllib.request import urlopen, Request
@@ -21,6 +21,9 @@ except ImportError:
 class Market():
     def __init__(self):
         self.data = []
+        self.pages = []
+        self.url_list = []
+        self.tickers = {}
 
     def add(self, x):
         self.data.append(x)
@@ -28,6 +31,11 @@ class Market():
     def addtwice(self, x):
         self.add(x)
         self.add(x)
+
+    def prepare(self):
+        self.get_pages_counts()
+        self.get_url_lists(1,self.pages)
+        self.get_tickers_ex(self.url_list)
 
     def get_pages_counts(self):
         # url = '''http://data.eastmoney.com/DataCenter_V3/jgdy/xx.ashx?pagesize=50&page=%d''' % 1
@@ -51,7 +59,7 @@ class Market():
         self.pages = pages
         return pages
 
-    def get_url_lists(self, start, end):
+    def get_url_lists(self, start=1, end=1):
         url_list = []
         while (start <= end):
             url = '''http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._A&sty=FCOIATA&sortType=(ChangePercent)&sortRule=-1&page=%d''' % start
@@ -61,13 +69,40 @@ class Market():
         self.url_list = url_list
         return url_list
 
-    def get_tickers_ex(self,url_list = []):
-        if(url_list == []):
+    def save_tickers(self):
+        a_file = open("data.json", "w")
+        json.dump(self.tickers, a_file)
+        a_file.close()
+
+    def load_tickers(self, data_name="data.json"):
+        a_file = open(data_name, "r")
+        self.tickers = a_file.read()
+        return self.tickers
+
+    def get_tickers_ex(self, url_list=[]):
+        if(url_list==[]):
             url_list = self.url_list
         tickers = {}
         for index in range(len(url_list)):
-            url0 = urllib.request.urlopen(url_list[index])
-            test_message = url0.read().decode('utf-8')
+            print(index)
+            # if int(index/10)*10 == index:
+            # try:
+            try:
+                url0 = urllib.request.urlopen(url_list[index])
+                test_message = url0.read().decode('utf-8')
+            except (urllib.error.HTTPError, ConnectionResetError):
+                try:
+                    time.sleep(2)
+                    url0 = urllib.request.urlopen(url_list[index])
+                    test_message = url0.read().decode('utf-8')
+                except (urllib.error.HTTPError, ConnectionResetError):
+                    try:
+                        time.sleep(10)
+                        url0 = urllib.request.urlopen(url_list[index])
+                        test_message = url0.read().decode('utf-8')
+                    except (urllib.error.HTTPError, ConnectionResetError):
+                        print("url_list:", index, " failed")
+            # test_message = requests.get(url=url0).decode('utf-8')
             start_pos = test_message.index('=')
             json_data = test_message[start_pos + 1:]
             json_data = json_data.replace('rank:', '\"rank\":').replace('pages:', '\"pages\":').replace('total:',
@@ -82,7 +117,9 @@ class Market():
                     tickers[stock_info[1] + '.SZ'] = stock_info[2]
                 if (stock_info[1][0]) == '0':
                     tickers[stock_info[1] + '.SZ'] = stock_info[2]
-
+            # except OSError:
+            #     print("OSError", url_list[index],json_data)
+        self.tickers = tickers
         return tickers
 
     def get_hist_data(self, code=None, start=None, end=None,
@@ -155,11 +192,10 @@ class Market():
                 return df
         raise IOError(ct.NETWORK_URL_ERROR_MSG)
 
-
     import pandas as pd
     def download_stocks(self, tickers, folder):
         start = dt.datetime(2015, 1, 1)
-        end = dt.datetime(2018, 2, 1)
+        end = dt.datetime(2020, 7, 1)
         if not os.path.exists(folder):
             os.mkdir(folder)
         for ticker in tickers:
@@ -173,7 +209,7 @@ class Market():
                     #     print("I/O error: {0}".format(err))
                     try:
                         # df = ts.get_h_data(ticker.split(".")[0], start='2015-01-01', end='2018-02-01')
-                        df = self.get_hist_data(ticker.split(".")[0], start='2015-01-01', end='2018-02-01')
+                        df = self.get_hist_data(ticker.split(".")[0], start='2015-01-01', end='2020-06-01')
                         break
                     except IOError as err:
                         print("I/O error: {0}".format(err))
@@ -184,6 +220,26 @@ class Market():
             else:
                 print('Already have {}'.format(ticker))
         return 1
+
+    def download_Sohu_stocks(self, tickers, folder, start='20150101', end='20200709'):
+        for ticker in tickers:
+            print(ticker)
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            filename = folder + '/{}.csv'.format(ticker)
+            download_sohu_hist(ticker.split(".")[0], filename, start='20150101', end='20200708')
+
+    def collect_stock_information(self, tickers, outfile='stockmarket.csv'):
+        df = pd.DataFrame({'A' : []})
+        for ticker in tickers:
+            print(ticker)
+            if df.empty:
+                df = Get_stock_Background(ticker.split(".")[0])
+            else:
+                df = df.append(Get_stock_Background(ticker.split(".")[0]))
+        df.to_csv(outfile)
+        pickle = outfile[-3]+'pkl'
+        df.to_pickle(pickle)
 
     def load_data_test(self, folder):
         return pd.read_csv(folder + '/{}.csv'.format('test'))
@@ -235,7 +291,10 @@ def plotAll():
                     df_total = df_total.merge(df[tickerName].to_frame(), left_index=True, right_index=True, how='outer')
 
 
-
+a = Market()
+# a.prepare()
+# a.collect_stock_information(a.tickers)""
+# a.download_Sohu_stocks(a.tickers,"cn_stock_sohu")
 
 
 

@@ -9,8 +9,8 @@ import time
 import math
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, "/content/LSTM-learn/")
-currentpath = r"/content/LSTM-learn/"
+sys.path.insert(0, "src/testcode/LSTM-learn/")
+currentpath = r"src/testcode/LSTM-learn/"
 from core.data_processor import DataLoader
 from core.model import Model
 
@@ -36,7 +36,7 @@ def plot_results_multiple(predicted_data, true_data, prediction_len):
     plt.show()
 
 def main():
-    configs = json.load(open(currentpath + 'config2.json', 'r'))
+    configs = json.load(open(currentpath + 'config.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
     data = DataLoader(

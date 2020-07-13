@@ -1,9 +1,11 @@
 {
 	"data": {
-		"filename": "testGBPUSD.csv",
+		"filename": "sp500.csv",
 		"columns": [
-			"DateTime",
-			"Close"
+			"Close",
+			"Open",
+			"High",
+			"Low"
 		],
 		"sequence_length": 50,
 		"train_test_split": 0.85,
