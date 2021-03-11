@@ -122,12 +122,25 @@ class MainHold:
     # main holder's data
     # http://fund.eastmoney.com/970016.html
 
-class MainHold(MainHold):
+class MainHolds():
     def __init__(self, name, id=0, date=0, number=0, value=0):
         self.name = name
         self.east_money_id = id
         self.date = date
         self.mainhold = MainHold(name, id, date)
+        self.df_summary = pd.DataFrame(columns=['股票代码',
+                                                '股票简称',
+                                                '数据日期',
+                                                '持有者类别',
+                                                '序号',
+                                                '持有者家数',
+                                                '持股变化',
+                                                '持股总数',
+                                                '持股市值',
+                                                '未知1',
+                                                '未知2',
+                                                '持股变动数值',
+                                                '持股变动比例(%)'])
 
     def add_to_hold(self, x, number=0, value=0):
         self.hold.append(x)
@@ -144,5 +157,63 @@ class MainHold(MainHold):
         res = json.loads(r.text.split('(', 1)[1].split(')')[0])
         self.date = json.loads(json.dumps(res.get("Data")[0])).get("Data")
 
+    def load_summary(self, date='2020-12-31', holder_type=1):
+        summary_link = r'http://data.eastmoney.com/dataapi/zlsj/list?tkn=eastmoney&ReportDate=' + date + \
+                       '&code=&type=' + str(holder_type) + \
+                       '&zjc=0&sortField=Count&sortDirec=1&pageNum=1&pageSize=99999999&cfg=jjsjtj'
+        try:
+            r = requests.get(url=summary_link)
+            r.status_code
+        except:
+            print("failed to load_summary")
+        res = json.loads(r.text)
+        self.df_summary = pd.DataFrame.from_dict(res.get("data"))
+        self.df_summary.rename(columns={'f0':'股票代码',
+                                        'f1':'股票简称',
+                                        'f2':'数据日期',
+                                        'f3':'持有者类别',
+                                        'f4':'序号',
+                                        'f5':'持有者家数',
+                                        'f6':'持股变化',
+                                        'f7':'持股总数',
+                                        'f8':'持股市值',
+                                        'f9':'未知1',
+                                        'f10':'未知2',
+                                        'f11':'持股变动数值',
+                                        'f12':'持股变动比例(%)'})
 
+# a = MainHolds("test")
+# a.load_summary()
+# a.df_summary
+
+    def load_details(self, scode='600519', reportdate='2020-12-31'):
+        detail_link = r'http://data.eastmoney.com/dataapi/zlsj/detail?SHType=&SHCode=&SCode=' + scode \
+                      + '&ReportDate=' + reportdate + '&sortField=SHCode&sortDirec=1&pageNum=1&pageSize=99999'
+        try:
+            r = requests.get(url=detail_link)
+            r.status_code
+        except:
+            print("failed to load_summary")
+        res = json.loads(r.text)
+        for i in range(len(res.get("data"))):
+            dict_ = {'股票代码': res.get("data")[i].get('f0'),
+                    '股票简称': res.get("data")[i].get('f1'),
+                    '数据日期': res.get("data")[i].get('f2'),
+                    '持有者类别': res.get("data")[i].get('f3'),
+                    '序号': res.get("data")[i].get('f4'),
+                    '持有者家数': res.get("data")[i].get('f5'),
+                    '持股变化': res.get("data")[i].get('f6'),
+                    '持股总数': res.get("data")[i].get('f7'),
+                    '持股市值': res.get("data")[i].get('f8'),
+                    '未知1': res.get("data")[i].get('f9'),
+                    '未知2': res.get("data")[i].get('f10'),
+                    '持股变动数值': res.get("data")[i].get('f11'),
+                    '持股变动比例(%)': res.get("data")[i].get('f12')
+                    }
+            temp_df = pd.DataFrame.from_dict([dict_])
+
+            try:
+                self.df_summary = self.df_summary.append(temp_df)
+            except ValueError:
+                print("ValueError")
 
