@@ -9,7 +9,10 @@ import os
 from pandas import Series
 from src.lib.SohuLib import download_stock_hist as download_sohu_hist
 from src.lib.SohuLib import Get_stock_Background
+from src.lib.EastmoneyLib import Get_stock_Background as Get_stock_BackgroundE
 import sys
+import math
+
 sys.path.append('/easyquotation.easyquotation')
 sys.path.append(r'C:\Users\ln_ti\PycharmProjects\GitGo\cn_stock_163')
 
@@ -34,17 +37,29 @@ class Market():
 
     def prepare(self):
         self.get_pages_counts()
-        self.get_url_lists(1,self.pages)
+        self.get_url_lists(int(1),int(self.pages))
         self.get_tickers_ex(self.url_list)
 
+    def get_json_eastmoney(self, url):  # 获取JSON
+        try:
+            r = requests.get(url)  # 抓取网页返回json信息
+            r.raise_for_status()
+            r.encoding = 'utf-8'
+            # print(r.json())
+            # with open(r"C:\Users\xxp\.spyder-py3\testcode\tmp.txt", "w") as fp:
+            # fp.write(json.dumps(r.json(),indent=4,ensure_ascii=False)) # txt测试是否成功获取网页
+            return r.json()
+        except:
+            return 'false'
+
     def get_pages_counts(self):
-        # url = '''http://data.eastmoney.com/DataCenter_V3/jgdy/xx.ashx?pagesize=50&page=%d''' % 1
-        # url += "&js=var%20ngDoXCbV&param=&sortRule=-1&sortType=0&rt=48753724"
-        url = '''http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._A&sty=FCOIATA&sortType=(ChangePercent)&sortRule=-1&page=%d''' % 1
-        url += "&pageSize=20&js=var%20MuaZqltj={rank:[(x)],pages:(pc),total:(tot)}&token=7bc05d0d4c3c22ef9fca8c2a912d779c&jsName=quote_123&_g=0.628606915911589&_=1517270127528"
+        url = '''http://data.eastmoney.com/DataCenter_V3/jgdy/xx.ashx?pagesize=50&page=%d''' % 1
+        url += "&js=var%20ngDoXCbV&param=&sortRule=-1&sortType=0&rt=48753724"
+        # url = '''http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._A&sty=FCOIATA&sortType=(ChangePercent)&sortRule=-1&page=%d''' % 1
+        # url += "&pageSize=20&js=var%20MuaZqltj={rank:[(x)],pages:(pc),total:(tot)}&token=7bc05d0d4c3c22ef9fca8c2a912d779c&jsName=quote_123&_g=0.628606915911589&_=1517270127528"
         wp = urllib.request.urlopen(url)
-        # data = wp.read().decode('gbk')
-        data = wp.read().decode('utf-8')
+        data = wp.read().decode('gbk')
+        # data = wp.read().decode('utf-8')
         data = data.replace('rank:', '\"rank\":').replace('pages:', '\"pages\":').replace('total:', '\"total\":')
         start_pos = data.index('=')
         json_data = data[start_pos + 1:]
@@ -56,7 +71,11 @@ class Market():
         # request = urllib.request.Request(jzc_html)
         # response = urllib.request.urlopen(request)
         # body = json.loads(response.read())
-        self.pages = pages
+        self.path = r'http://31.push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:0+t:80,m:1+t:2,m:1+t:23&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152'
+        result = self.get_json_eastmoney(self.path)
+        total = result.get("data").get("total")
+        all_name = result.get("data").get("diff")  # list类型
+        self.pages = math.ceil(total/float(len(all_name)))
         return pages
 
     def get_url_lists(self, start=1, end=1):
@@ -64,6 +83,8 @@ class Market():
         while (start <= end):
             url = '''http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._A&sty=FCOIATA&sortType=(ChangePercent)&sortRule=-1&page=%d''' % start
             url += "&pageSize=20&js=var%20MuaZqltj={rank:[(x)],pages:(pc),total:(tot)}&token=7bc05d0d4c3c22ef9fca8c2a912d779c&jsName=quote_123&_g=0.628606915911589&_=1517270127528"
+            url = '''http://31.push2.eastmoney.com/api/qt/clist/get?pn=%d''' % start
+            url += "&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:0+t:80,m:1+t:2,m:1+t:23&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152"
             url_list.append(url)
             start += 1
         self.url_list = url_list
@@ -88,21 +109,36 @@ class Market():
             # if int(index/10)*10 == index:
             # try:
             try:
+                result = self.get_json_eastmoney(url_list[index])
+            except:
+                print("get_json_eastmoney error")
+
+            all_name = result.get("data").get("diff")  # list类型
+            for i in range(0, len(all_name) - 1):  # 数组长度限定30交易日内数据
+                item = all_name[i]  # 获取数据 dict类型
+                if (item['f12'][0]) == '6':
+                    tickers[item['f12'] + '.SS'] = item['f14']
+                if (item['f12'][0]) == '3':
+                    tickers[item['f12'] + '.SZ'] = item['f14']
+                if (item['f12'][0]) == '0':
+                    tickers[item['f12'] + '.SZ'] = item['f14']
+            '''...
+            try:
                 url0 = urllib.request.urlopen(url_list[index])
-                test_message = url0.read().decode('utf-8')
+                test_message = url0.read()#.decode('utf-8')
             except (urllib.error.HTTPError, ConnectionResetError):
                 try:
                     time.sleep(2)
                     url0 = urllib.request.urlopen(url_list[index])
-                    test_message = url0.read().decode('utf-8')
+                    test_message = url0.read()#.decode('utf-8')
                 except (urllib.error.HTTPError, ConnectionResetError):
                     try:
                         time.sleep(10)
                         url0 = urllib.request.urlopen(url_list[index])
-                        test_message = url0.read().decode('utf-8')
+                        test_message = url0.read()#.decode('utf-8')
                     except (urllib.error.HTTPError, ConnectionResetError):
                         print("url_list:", index, " failed")
-            # test_message = requests.get(url=url0).decode('utf-8')
+            #test_message = requests.get(url=url0).decode('utf-8')
             start_pos = test_message.index('=')
             json_data = test_message[start_pos + 1:]
             json_data = json_data.replace('rank:', '\"rank\":').replace('pages:', '\"pages\":').replace('total:',
@@ -119,6 +155,7 @@ class Market():
                     tickers[stock_info[1] + '.SZ'] = stock_info[2]
             # except OSError:
             #     print("OSError", url_list[index],json_data)
+            '''
         self.tickers = tickers
         return tickers
 
@@ -221,13 +258,20 @@ class Market():
                 print('Already have {}'.format(ticker))
         return 1
 
-    def download_Sohu_stocks(self, tickers, folder, start='20150101', end='20200709'):
+    def download_Sohu_stocks(self, tickers, folder, start='20150101', end='20210301'):
         for ticker in tickers:
             print(ticker)
             if not os.path.exists(folder):
                 os.mkdir(folder)
             filename = folder + '/{}.csv'.format(ticker)
-            download_sohu_hist(ticker.split(".")[0], filename, start='20150101', end='20200708')
+            try:
+                download_sohu_hist(ticker.split(".")[0], filename, start=start, end=end)
+            except (TimeoutError, urllib.error.URLError) as err:
+                print("time Out on %s, try again", ticker.split(".")[0])
+                try:
+                    download_sohu_hist(ticker.split(".")[0], filename, start=start, end=end)
+                except (TimeoutError, urllib.error.URLError) as err:
+                    print("time Out on %s, skip", ticker.split(".")[0])
 
     def collect_stock_information(self, tickers, outfile='stockmarket.csv'):
         df = pd.DataFrame({'A' : []})
@@ -240,6 +284,19 @@ class Market():
         df.to_csv(outfile)
         pickle = outfile[-3]+'pkl'
         df.to_pickle(pickle)
+
+    def collect_stock_information_em(self, tickers, outfile='stockmarket.csv'):
+        df = pd.DataFrame({'A' : []})
+        for ticker in tickers:
+            print(ticker)
+            if df.empty:
+                df = Get_stock_BackgroundE(ticker.split(".")[0])
+            else:
+                df = df.append(Get_stock_BackgroundE(ticker.split(".")[0]))
+        df.to_csv(outfile)
+        pickle = outfile[-3]+'pkl'
+        df.to_pickle(pickle)
+
 
     def load_data_test(self, folder):
         return pd.read_csv(folder + '/{}.csv'.format('test'))
@@ -292,7 +349,8 @@ def plotAll():
 
 
 a = Market()
-# a.prepare()
+a.prepare()
+a.collect_stock_information_em(a.tickers)
 # a.collect_stock_information(a.tickers)""
 # a.download_Sohu_stocks(a.tickers,"cn_stock_sohu")
 

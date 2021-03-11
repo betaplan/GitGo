@@ -23,7 +23,7 @@ class tsdata():
                 input_data = pd.read_csv(arg)
             except UnicodeDecodeError:
                 try:
-                    input_data = pd.read_csv(arg, encoding="gbk")
+                    input_data = pd.read_csv(arg, encoding="gbk", index_col=False)
                 except UnboundLocalError:
                     print('Input str not a valid path')
         if(isinstance(arg, pd.DataFrame)):
@@ -33,16 +33,20 @@ class tsdata():
         input_data = input_data.rename(columns={'date': 'DateTime','Date': 'DateTime','DATE': 'DateTime','日期': 'DateTime',
         'Time': 'DateTime', 'time': 'DateTime', '时间': 'DateTime', 'TIME': 'DateTime'})
         try:
-            input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%m/%d/%Y")
+            input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%Y/%m/%d")
         except:
             try:
                 input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%d/%m/%Y")
             except:
                 try:
-                    input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%Y-%m-%d")
+                    input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%m/%d/%Y")
                 except:
-                    print('unknown date format')
+                    try:
+                        input_data['DateTime'] = pd.to_datetime(input_data['DateTime'], format="%Y-%m-%d")
+                    except:
+                        print('unknown date format')
         self.input_dataRN = input_data.set_index('DateTime')
+        self.input_dataRN = self.input_dataRN.loc[~self.input_dataRN.index.duplicated(keep='first')]
 
     def insetData(self, asset, *args):
         self.colId.append(asset)
@@ -57,16 +61,26 @@ class tsdata():
             for index, col in enumerate(newColName):
                 selfIndex = self.colNames.index(col)
                 try:
+                    # self.dataFrames[selfIndex] = \
+                    #     self.dataFrames[selfIndex].loc[~self.dataFrames[selfIndex].index.duplicated(keep='first')]
                     self.dataFrames[selfIndex] = pd.concat([self.dataFrames[selfIndex], self.input_dataRN.loc[:,col]],
-                    ignore_index=False, axis=1)
+                     ignore_index=False, axis=1)
                     if(self.dataFrames[selfIndex].columns.values[0]!=self.colId[0]):
                         self.dataFrames[selfIndex] = self.dataFrames[selfIndex].rename(
                             columns={self.dataFrames[selfIndex].columns.values[0]: self.colId[0]})
+                    # print(selfIndex,self.dataFrames[selfIndex].head())
                 except ValueError:
+                    # print(selfIndex, self.input_dataRN.loc[:, col])
                     self.dataFrames[selfIndex] = self.input_dataRN.loc[:, col]
                 except IndexError:
                     # print(self.input_dataRN[col])
                     self.dataFrames.append(self.input_dataRN.loc[:, col])
+                # except pd.core.indexes.base.InvalidIndexError:
+                #     print("InvalidIndexError")
+                #     pass
+                    # print("pd.core.indexes.base.InvalidIndexError: ", self.input_dataRN.loc[:, col])
+                    # self.dataFrames.append(self.input_dataRN.loc[:, col])
+
                 self.dataFrames[selfIndex] = self.dataFrames[selfIndex].rename(columns={'0': self.colId[0], self.colNames[selfIndex]: asset})
         else:
             print(args," have no data!")
