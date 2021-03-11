@@ -1,6 +1,9 @@
+# file: ~/.gitignore_global
 *.csv
 test_*.py
 *.xls
-# file: ~/.gitignore_global
 .DS_Store
 .idea
+.idea/GitGo.iml
+.idea/misc.xml
+ .idea/workspace.xml
