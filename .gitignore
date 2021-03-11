@@ -4,3 +4,4 @@ test_*.py
 # file: ~/.gitignore_global
 .DS_Store
 .idea
+*.xml
